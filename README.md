@@ -4,7 +4,7 @@ A Clojure game library that wraps the jmonkey engine.
 
 ## Usage
 
-FIXME
+Dont, would not recommend for even hobby use yet.
 
 ## License
 
