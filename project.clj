@@ -8,6 +8,5 @@
                 #_ [org.jmonkeyengine/jme3-lwjgl3 "3.1.0-stable"]
                  [org.jmonkeyengine/jme3-desktop "3.1.0-stable"]
                  [org.jmonkeyengine/jme3-lwjgl "3.1.0-stable"]]
-  :main cmonkey.core
   :repositories {"bintray"
 	   "https://dl.bintray.com/jmonkeyengine/org.jmonkeyengine/"})
