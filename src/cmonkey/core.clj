@@ -1,10 +1,12 @@
 (ns cmonkey.core
   (:import [com.jme3
             app.SimpleApplication
+            asset.AssetManager
             system.AppSettings
             system.JmeSystem
             material.Material
             scene.Geometry
+            scene.Node
             scene.shape.Box
             math.Vector3f
             math.ColorRGBA]))
@@ -34,6 +36,9 @@
               position)]
     (Box. pos w h l)))
 
+;;wanted to call (apply...) here but does not work with java constructors
+;;as arguments must be known ahead of time, can use reflection at the cost of speed
+;;probably best to avoid it for now
 (defn geometry
   "given a name and a mesh creates a jmonkey geometry"
   [n mesh]
@@ -46,33 +51,78 @@
 
 
 ;;we will try to hide the mutation of these better in the future
+;;might want to return mutated object AND mutated value in the future
+;;for these setter functions
 (defn set-mat-color!
   "sets the color of a material given the material a string
-  and a jmonkey math.ColorRGBA"
+  and a jmonkey math.ColorRGBA. Will return the mutated object"
   [mat string color]
-  (.setColor mat string color))
+  (.setColor mat string color)
+  mat)
 
 (defn set-geom-mat!
   "set the material to a geometry"
   [geom mat]
-  (.setMaterial geom mat))
+  (.setMaterial geom mat)
+  geom)
+
+(defn set-local-tranform!
+  "sets local transform of geometry"
+  [geo v]
+  (let [pos (if (= (type v) clojure.lang.PersistentVector)
+                (vec->vector3f v)
+                v)]
+    (.setLocalTransform geo (vec->vector3f pos))
+    geo))
+
+(def unshaded "Common/MatDefs/Misc/Unshaded.j3md")
+
+(defn primitive-box
+  "creates an origin based white box"
+  [am]
+  (doto (geometry "Box" (box [0 0 0] 1 1 1))
+    (set-geom-mat! (doto (material am unshaded)
+                     (set-mat-color! "Color" ColorRGBA/White)))))
+
+(defn populate-scene
+  "TODO: given an the root node and a hashmap of nodes fills the scen graph"
+  [am scene-state]
+  )
 
 (comment
   ;;some testing
-         
+  ;;mutable objects need we need to revaluate alot when we want to "reset things"
+  
   (def app (proxy [SimpleApplication] []
              (simpleInitApp []
-               (let [b (box [0 0 0] 1 1 1)
-                     geom (geometry "Box" b)
-                     mat (material (.getAssetManager this)
-                                   "Common/MatDefs/Misc/Unshaded.j3md")]
-                 (set-mat-color! mat "Color" ColorRGBA/Blue)
-                 (set-geom-mat! geom mat)
-                 ;;we need a macro here to hide the java calls, if we decide to do that.
-                 (doto (.getRootNode this) (.attachChild geom))))))
+               (let [asset-manager (.getAssetManager this)
+                     root-node (.getRootNode this)]
+                 (doseq [x [-1 0 1]
+                         y [-1 0 1]
+                         z [-1 0 1]]
+                   (.attachChild root-node
+                                 (set-local-tranform!
+                                  (primitive-box asset-manager)
+                                  [x y z])))))))
+
+  (def app2 (proxy [SimpleApplication] []
+              (simpleInitApp []
+                (.attachChild
+                 (.getRootNode this)
+                 (primitive-box (.getAssetManager this))))))
   
   (defn start [& args]
     (doto app
+      (.setShowSettings true)
+      #_(.setSettings *app-settings*)
       (.start)))
 
+  (defn start2 [& args]
+    (doto app2
+      (.setShowSettings true)
+      #_(.setSettings *app-settings*)
+      (.start)))
+  
+  (start2)
+  
   (start))
