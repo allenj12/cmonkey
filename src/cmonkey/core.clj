@@ -2,11 +2,13 @@
   (:import [com.jme3
             app.SimpleApplication
             asset.AssetManager
+            light.DirectionalLight
             system.AppSettings
             system.JmeSystem
             material.Material
             scene.Geometry
             scene.Node
+            scene.Spatial
             scene.shape.Box
             math.Vector3f
             math.ColorRGBA]))
@@ -15,6 +17,13 @@
   alot of these methods do not include all of
   the constructers needed right now as this is
   a playground to see what is actually needed)
+
+(defn asset-manager
+  "returns a new, configured assetManager" []
+  (JmeSystem/newAssetManager
+   (.getResource
+    (.getContextClassLoader (Thread/currentThread))
+    "com/jme3/asset/Desktop.cfg")))
 
 (defn vector3f->vec
   "converts jmonkey's vector3F to a normal clojure vec"
@@ -49,6 +58,11 @@
   [am ap]
   (Material. am ap))
 
+(defn spatial
+  "given assetManager and asset path creates a spatial"
+  [am ap]
+  (.loadModel am ap))
+
 
 ;;we will try to hide the mutation of these better in the future
 ;;might want to return mutated object AND mutated value in the future
@@ -66,16 +80,20 @@
   (.setMaterial geom mat)
   geom)
 
-(defn set-local-tranform!
+(defn set-local-translation!
   "sets local transform of geometry"
   [geo v]
   (let [pos (if (= (type v) clojure.lang.PersistentVector)
                 (vec->vector3f v)
                 v)]
-    (.setLocalTransform geo (vec->vector3f pos))
+    (.setLocalTranslation geo pos)
     geo))
 
 (def unshaded "Common/MatDefs/Misc/Unshaded.j3md")
+
+(def teapot "assets/Models/Teapot/Teapot.obj")
+
+(def show-normals "Common/MatDefs/Misc/ShowNormals.j3md")
 
 (defn primitive-box
   "creates an origin based white box"
@@ -101,28 +119,42 @@
                          y [-1 0 1]
                          z [-1 0 1]]
                    (.attachChild root-node
-                                 (set-local-tranform!
+                                 (set-local-translation!
                                   (primitive-box asset-manager)
                                   [x y z])))))))
 
   (def app2 (proxy [SimpleApplication] []
-              (simpleInitApp []
-                (.attachChild
-                 (.getRootNode this)
-                 (primitive-box (.getAssetManager this))))))
+              (simpleInitApp
+                []
+                (let [am (.getAssetManager this)
+                      rn (.getRootNode this)
+                      sp (spatial am teapot)]
+                  (.attachChild rn
+                                (set-geom-mat!
+                                 sp
+                                 (material am show-normals)))
+                  (.addLight rn
+                             (doto (DirectionalLight.)
+                               (.setDirection (vec->vector3f [-0.1 -0.7 -1]))))))))
+
+  (def app3 (let [player (primitive-box (asset-manager))]
+                (proxy [SimpleApplication] []
+                   (simpleInitApp
+                     []
+                     (.attachChild (.getRootNode this)
+                                   player))
+                   (simpleUpdate
+                     [tpf]
+                     (.rotate player 0 (* 2 tpf) 0)))))
   
-  (defn start [& args]
+  (defn start [app]
     (doto app
       (.setShowSettings true)
       #_(.setSettings *app-settings*)
       (.start)))
+  
+  (start app)
+  
+  (start app3)
 
-  (defn start2 [& args]
-    (doto app2
-      (.setShowSettings true)
-      #_(.setSettings *app-settings*)
-      (.start)))
-  
-  (start2)
-  
-  (start))
+  )
